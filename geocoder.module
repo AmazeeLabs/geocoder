@@ -273,7 +273,7 @@ function geocoder_field_attach_presave($entity_type, $entity) {
           $items = field_get_items($entity_type, $entity, $field_name, $langcode);
         }
         
-        if (count($items)) {
+        if (is_array($items) && count($items)) {
           $values = array();
           
           // Geocode geometries
