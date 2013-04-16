@@ -23,47 +23,49 @@ $plugin = array(
  */
 function geocoder_google($address, $return = 'point') {
   geocoder_load_geophp();
-  
+
   $query = array(
     'address' => $address,
     'sensor' => 'false'
   );
-  
+
   $url = url("http://maps.googleapis.com/maps/api/geocode/json", array('query' => $query));
   $result = drupal_http_request($url);
-  
+
   if (isset($result->error)) {
     drupal_set_message('Error geocoding: '.$result->code.' '.$result->error,'error');
     return FALSE;
   }
-  
+
   $data = json_decode($result->data);
-  
+
   if ($data->status == 'OK') {
     $geometries = array();
-    
+
     foreach ($data->results as $item) {
       $geom = new Point($item->geometry->location->lng, $item->geometry->location->lat);
-      
+
       // Add additional metadata to the geometry - it might be useful!
       $geom->data = array();
       $geom->data['geocoder_accuracy'] = $item->geometry->location_type;
       $geom->data['geocoder_formatted_address'] = $item->formatted_address;
       $geom->data['geocoder_address_components'] = $item->address_components;
-      
+
       $geometries[] = $geom;
     }
-    
+
     // The connonical geometry is the first result
     $geometry = array_shift($geometries);
-    
+
     // If there are any other geometries, these are auxiliary geometries that represent "alternatives"
     if (count($geometries)) $geometry->data['geocoder_alternatives'] = $geometries;
-    
+
     return $geometry;
   }
   else {
-    drupal_set_message('Error geocoding: '.$data->status,'error');
+    // Patch for hiding error message mentioned in #CD-2192
+    watchdog('geocoder', 'Error geocoding: ' . $data->status, array(), WATCHDOG_ERROR);
+    //drupal_set_message('Error geocoding: '.$data->status,'error');
     return FALSE;
   }
 }
