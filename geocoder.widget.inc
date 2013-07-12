@@ -231,7 +231,9 @@ function geocoder_widget_get_field_value($entity_type, $field_instance, $entity 
 
     // For entities being updated, determine if another geocode is necessary
     if ($entity) {
-      if (!empty($entity->original)) {
+      // Hack which allow force update of geofields.
+      // todo (alex): revert hack and use 7.x-1.2 version after update is done.
+      if (!empty($entity->original) && empty($entity->geocoder_force_fields_update)) {
         //@@TODO: Deal with entity-properties (non-fields)
         //@@TODO: This isn't working with file fields. Should use some kind of lookup / map
         $field_original = field_get_items($entity_type, $entity->original, $field_name, isset($entity->original->language) ? $entity->original->language : NULL);
