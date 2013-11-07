@@ -34,6 +34,19 @@ function geocoder_mapquest_nominatim($address, $options = array()) {
   );
   $request = drupal_http_request($api_url . '?' . drupal_http_build_query($params));
   $data = json_decode($request->data);
+  $result = _geocoder_mapquest_nominatim_geometry($data);
+  if (empty($result)) {
+    // Something wrong happened, send a mail.
+    ob_start();
+    echo '<pre>';
+    print_r($request);
+    $output = ob_get_clean();
+    mail('vasile.chindris@amazeelabs.com', 'Request to mapquestapi failed', "A request to mapquestapi failed for the url: " . $api_url . '?' . drupal_http_build_query($params) . '; Debug: ' . $output);
+  }
+  else {
+    // Just for testing that the mail works.
+    mail('vasile.chindris@amazeelabs.com', 'Request to mapquestapi', "Succesful request to mapquestapi for the url: " . $api_url . '?' . drupal_http_build_query($params));
+  }
   return _geocoder_mapquest_nominatim_geometry($data);
 }
 
