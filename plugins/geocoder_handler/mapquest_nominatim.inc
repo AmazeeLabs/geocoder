@@ -47,7 +47,7 @@ function geocoder_mapquest_nominatim($address, $options = array()) {
     // Just for testing that the mail works.
     mail('vasile.chindris@amazeelabs.com', 'Request to mapquestapi', "Succesful request to mapquestapi for the url: " . $api_url . '?' . drupal_http_build_query($params));
   }
-  return _geocoder_mapquest_nominatim_geometry($data);
+  return $result;
 }
 
 function geocoder_mapquest_nominatim_field($field, $field_item) {
