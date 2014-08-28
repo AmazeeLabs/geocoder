@@ -134,11 +134,80 @@ function geocoder_field_widget_settings_form($this_field, $instance) {
     '#required' => TRUE,
   );
 
+   $form['latlng_override'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Allow manual lat/long override'),
+    '#default_value' => isset($settings['latlng_override']) ? $settings['latlng_override']: FALSE,
+    '#description' => t('Allow the user to override geolocation lat/long values manually. Useful when geocoding is inaccurate.'),
+  );
+
   // Add javascript to sync allowed values. Note that we are not using AJAX because we do not have access to the raw form_state here
   drupal_add_js(array('geocoder_widget_settings' => array('handlers' => $handlers_by_type, 'types' => $field_types)), 'setting');
   drupal_add_js(drupal_get_path('module', 'geocoder') . '/geocoder.admin.js', 'file');
 
   return $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function geocoder_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $base) {
+  $widget = $instance['widget'];
+  $settings = $widget['settings'];
+
+  if ($widget['type'] == 'geocoder' && isset($settings['latlng_override']) && $settings['latlng_override']) {
+
+    $instance['widget']['type'] = 'geofield_latlon';
+    $element = geofield_field_widget_form($form, $form_state, $field, $instance, $langcode, $items, $delta, $base);
+    // At present, the only way we know if the user has overridden the lat/long
+    // values is to perform a geocode and compare with the existing values.
+    $geocoded_value = geocoder_widget_get_field_value($instance['entity_type'], $instance, $form['#entity']);
+    $override_default = FALSE;
+    if($geocoded_value &&
+      (round($element['lat']['#default_value'], 3) != round($geocoded_value[LANGUAGE_NONE][0]['lat'], 3)
+      || round($element['lon']['#default_value'], 3) != round($geocoded_value[LANGUAGE_NONE][0]['lon'], 3))){
+      $override_default = TRUE;
+    }
+
+    $element['user_override'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Override lat/long values'),
+      '#weight' => -10,
+      '#default_value' => $override_default,
+      '#description' => t('If address geocoding is inaccurate, check this box to override the lat/long values manually.'),
+    );
+
+    // Only display lat/long inputs if override is checked
+    $element['lat']['#states'] = array(
+      'visible' => array(
+        ':input[name="' . $field['field_name'] . '[und][user_override]"]' => array('checked' => TRUE),
+      ),
+    );
+    $element['lon']['#states'] = array(
+      'visible' => array(
+        ':input[name="' . $field['field_name'] . '[und][user_override]"]' => array('checked' => TRUE),
+      ),
+    );
+
+    $element['#element_validate'][] = 'geocoder_element_validate';
+    return $element;
+  }
+}
+
+/**
+ * Geocoder element validate function.
+ * Only executes if lat/long override is selected.
+ */
+function geocoder_element_validate($element, &$form_state) {
+  // Move submitted values to a sub-array,
+  // as the field validator is expecting.
+  $temp = $form_state['values'][$element['#field_name']][LANGUAGE_NONE];
+  unset($form_state['values'][$element['#field_name']][LANGUAGE_NONE]);
+  $form_state['values'][$element['#field_name']][LANGUAGE_NONE][] = $temp;
+  if($element['user_override']['#value']){
+    // set a flag that can be picked up in hook_field_attach_presave()
+    $form_state['values']['geocoder_overridden'] = TRUE;
+  }
 }
 
 /**
@@ -152,7 +221,7 @@ function geocoder_field_attach_presave($entity_type, $entity) {
   $entity_info = entity_get_info($entity_type);
   $bundle_name = empty($entity_info['entity keys']['bundle']) ? $entity_type : $entity->{$entity_info['entity keys']['bundle']};
   foreach (field_info_instances($entity_type, $bundle_name) as $field_instance) {
-    if ($field_instance['widget']['type'] === 'geocoder') {
+    if ($field_instance['widget']['type'] === 'geocoder' && !isset($entity->geocoder_overridden)) {
       if (($field_value = geocoder_widget_get_field_value($entity_type, $field_instance, $entity)) !== FALSE) {
         $entity->{$field_instance['field_name']} = $field_value;
       }
