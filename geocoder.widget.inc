@@ -159,14 +159,18 @@ function geocoder_field_widget_form(&$form, &$form_state, $field, $instance, $la
 
     $instance['widget']['type'] = 'geofield_latlon';
     $element = geofield_field_widget_form($form, $form_state, $field, $instance, $langcode, $items, $delta, $base);
-    // At present, the only way we know if the user has overridden the lat/long
-    // values is to perform a geocode and compare with the existing values.
-    $geocoded_value = geocoder_widget_get_field_value($instance['entity_type'], $instance, $form['#entity']);
     $override_default = FALSE;
-    if($geocoded_value &&
-      (round($element['lat']['#default_value'], 3) != round($geocoded_value[LANGUAGE_NONE][0]['lat'], 3)
-      || round($element['lon']['#default_value'], 3) != round($geocoded_value[LANGUAGE_NONE][0]['lon'], 3))){
-      $override_default = TRUE;
+    list($entity_id) = entity_extract_ids($base['#entity_type'], $base['#entity']);
+    $entity_is_new = empty($entity_id);
+    if (!$entity_is_new) {
+      // At present, the only way we know if the user has overridden the lat/long
+      // values is to perform a geocode and compare with the existing values.
+      $geocoded_value = geocoder_widget_get_field_value($instance['entity_type'], $instance, $form['#entity']);
+      if (empty($geocoded_value) ||
+        (round($element['geom']['#default_value']['lat'], 3) != round($geocoded_value[LANGUAGE_NONE][0]['lat'], 3)
+        || round($element['geom']['#default_value']['lon'], 3) != round($geocoded_value[LANGUAGE_NONE][0]['lon'], 3))) {
+        $override_default = TRUE;
+      }
     }
 
     $element['user_override'] = array(
@@ -174,16 +178,11 @@ function geocoder_field_widget_form(&$form, &$form_state, $field, $instance, $la
       '#title' => t('Override lat/long values'),
       '#weight' => -10,
       '#default_value' => $override_default,
-      '#description' => t('If address geocoding is inaccurate, check this box to override the lat/long values manually.'),
+      '#description' => t('If address geocoding is inaccurate or missing, check this box to override the lat/long values manually.'),
     );
 
     // Only display lat/long inputs if override is checked
-    $element['lat']['#states'] = array(
-      'visible' => array(
-        ':input[name="' . $field['field_name'] . '[und][user_override]"]' => array('checked' => TRUE),
-      ),
-    );
-    $element['lon']['#states'] = array(
+    $element['geom']['#states'] = array(
       'visible' => array(
         ':input[name="' . $field['field_name'] . '[und][user_override]"]' => array('checked' => TRUE),
       ),
