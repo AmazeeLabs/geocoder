@@ -148,6 +148,9 @@ function geocoder_field_widget_settings_form($this_field, $instance) {
  * and fully processed fields values are accessed.
  */
 function geocoder_field_attach_presave($entity_type, $entity) {
+  if (variable_get('geocoder_field_attach_presave_temporary_disabled')) {
+    return;
+  }
   // Loop over any geofield using our geocode widget
   $entity_info = entity_get_info($entity_type);
   $bundle_name = empty($entity_info['entity keys']['bundle']) ? $entity_type : $entity->{$entity_info['entity keys']['bundle']};
